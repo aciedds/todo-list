@@ -8,10 +8,14 @@
   },
   "dependencies": {
     "@elysiajs/cors": "^1.4.0",
-    "elysia": "latest"
+    "@prisma/adapter-pg": "^6.16.3",
+    "@prisma/client": "^6.16.3",
+    "elysia": "latest",
+    "prismabox": "^1.1.25"
   },
   "devDependencies": {
-    "bun-types": "latest"
+    "bun-types": "latest",
+    "prisma": "^6.16.3"
   },
   "module": "src/index.js"
 }
