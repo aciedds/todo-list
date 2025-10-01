@@ -1,32 +1,33 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import axios from 'axios';
+import { onMounted } from 'vue';
+import { useHealthStore } from './HelloWorldStore';
+import { storeToRefs } from 'pinia';
 
-const baseUrl = import.meta.env.VITE_BASE_URL;
-const data  = ref(null);
-const error = ref('');
+// Setup Stores
+const healthStore = useHealthStore();
+const { data, error, isLoading } = storeToRefs(healthStore);
 
-onMounted(async () => {
-  try {
-    const response = await axios.get(`${baseUrl}/health`);
-    console.log(response.data);
-    data.value = response.data;
-  } catch(err: any) {
-    error.value = "Failed to fetch data: " + (err?.message || err);
-  }
+onMounted(() => {
+  healthStore.fetchHealth();
 });
+
 </script>
 
 <template>
   <div class="w-full h-screen grid place-content-center">
     <h1>HelloWorld</h1>
-    <p>Base URL: {{ baseUrl }}</p>
     <div>
-      <div v-if="data">
-        <pre>Data: {{ JSON.stringify(data, null, 2) }}</pre>
+      <div v-if="isLoading">
+        <p>Loading...</p>
       </div>
-      <div v-else-if="error" class="error">Error Message: {{ error }}</div>
-      <div v-else>Loading...</div>
+      <div v-else>
+        <div v-if="data">
+        <pre>Data: {{ JSON.stringify(data, null, 2) }}</pre>
+        </div>
+        <div v-if="error">
+          <p class="error">Error: {{ error.message }}</p>
+        </div>
+      </div>
     </div>
   </div>
 </template>
