@@ -1,7 +1,8 @@
 import type { User } from "../../domain/models/user_model";
 import type { UserRepository } from "../../domain/repositories/user_repository";
 import type { UserDataSource } from "../source/user_remote_source";
-import type { LoginCredentials, RegisterData, UpdateUserData, ChangePasswordData, AuthResponse } from "../models/request/user_request";
+import type { LoginCredentials, RegisterData, UpdateUserData, ChangePasswordData, ChangeEmailData } from "../models/request/user_request";
+import type { AuthResponse } from "../models/response/user_response";
 import type { ApiError } from "../services/api_service";
 
 export class UserRepositoryImpl implements UserRepository {
@@ -84,61 +85,13 @@ export class UserRepositoryImpl implements UserRepository {
   }
 
   /**
-   * Refresh authentication token
+   * Change user email
    */
-  async refreshToken(): Promise<AuthResponse> {
+  async changeEmail(data: ChangeEmailData): Promise<User> {
     try {
-      return await this.userDataSource.refreshToken();
+      return await this.userDataSource.changeEmail(data);
     } catch (error) {
-      console.error('Repository: Token refresh failed:', error);
-      throw this.handleError(error);
-    }
-  }
-
-  /**
-   * Request password reset
-   */
-  async requestPasswordReset(email: string): Promise<void> {
-    try {
-      await this.userDataSource.requestPasswordReset(email);
-    } catch (error) {
-      console.error('Repository: Password reset request failed:', error);
-      throw this.handleError(error);
-    }
-  }
-
-  /**
-   * Reset password with token
-   */
-  async resetPassword(token: string, newPassword: string): Promise<void> {
-    try {
-      await this.userDataSource.resetPassword(token, newPassword);
-    } catch (error) {
-      console.error('Repository: Password reset failed:', error);
-      throw this.handleError(error);
-    }
-  }
-
-  /**
-   * Verify email address
-   */
-  async verifyEmail(token: string): Promise<void> {
-    try {
-      await this.userDataSource.verifyEmail(token);
-    } catch (error) {
-      console.error('Repository: Email verification failed:', error);
-      throw this.handleError(error);
-    }
-  }
-
-  /**
-   * Resend email verification
-   */
-  async resendVerificationEmail(): Promise<void> {
-    try {
-      await this.userDataSource.resendVerificationEmail();
-    } catch (error) {
-      console.error('Repository: Failed to resend verification email:', error);
+      console.error('Repository: Failed to change email:', error);
       throw this.handleError(error);
     }
   }
@@ -146,9 +99,9 @@ export class UserRepositoryImpl implements UserRepository {
   /**
    * Delete user account
    */
-  async deleteAccount(password: string): Promise<void> {
+  async deleteAccount(): Promise<void> {
     try {
-      await this.userDataSource.deleteAccount(password);
+      await this.userDataSource.deleteAccount();
     } catch (error) {
       console.error('Repository: Failed to delete account:', error);
       throw this.handleError(error);

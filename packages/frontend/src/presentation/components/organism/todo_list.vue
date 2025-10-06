@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { useTodoStore } from '@/presentation/stores/todo.store';
 import TodoItem from '@/presentation/components/molecules/TodoItem.vue';
 import { computed } from 'vue';
+import { useTodoStore } from '../../stores/todo_store';
 
 const todoStore = useTodoStore();
 const todos = computed(() => todoStore.todos);

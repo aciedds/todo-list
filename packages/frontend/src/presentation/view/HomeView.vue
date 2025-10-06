@@ -1,12 +1,9 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
 import { useTodoStore } from '../stores/todo_store'
 import { useAuthStore } from '../stores/auth_store'
 import type { CreateTodoData, TodoFilters } from '../../data/models/request/todo_request'
-
-const router = useRouter()
 const todoStore = useTodoStore()
 const authStore = useAuthStore()
 
@@ -19,8 +16,7 @@ const hasSelectedTodos = computed(() => todoStore.hasSelectedTodos)
 // New todo form
 const newTodo = ref<CreateTodoData>({
   title: '',
-  description: '',
-  priority: 'medium'
+  content: ''
 })
 
 // Filters and search
@@ -47,7 +43,7 @@ const filteredTodos = computed(() => {
     const query = searchQuery.value.toLowerCase()
     filtered = filtered.filter(todo => 
       todo.title.toLowerCase().includes(query) ||
-      ((todo as any).description || '').toLowerCase().includes(query)
+      (todo.content || '').toLowerCase().includes(query)
     )
   }
 
@@ -63,11 +59,8 @@ const filteredTodos = computed(() => {
     switch (sortBy.value) {
       case 'title':
         return a.title.localeCompare(b.title)
-      case 'priority':
-        const priorityOrder = { high: 3, medium: 2, low: 1 }
-        const aPriority = (a as any).priority || 'low'
-        const bPriority = (b as any).priority || 'low'
-        return priorityOrder[bPriority as keyof typeof priorityOrder] - priorityOrder[aPriority as keyof typeof priorityOrder]
+      case 'updatedAt':
+        return new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime()
       case 'createdAt':
       default:
         return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
@@ -85,8 +78,7 @@ const handleAddTodo = async () => {
     await todoStore.addTodo(newTodo.value)
     newTodo.value = {
       title: '',
-      description: '',
-      priority: 'medium'
+      content: ''
     }
   } catch (error) {
     console.error('Failed to add todo:', error)
@@ -117,7 +109,10 @@ const handleSelectTodo = (id: string) => {
 
 const handleBulkComplete = async () => {
   try {
-    await todoStore.markMultipleComplete(selectedTodos.value)
+    // Complete todos individually since bulk operations are not available
+    for (const todoId of selectedTodos.value) {
+      await todoStore.toggleTodoComplete(todoId)
+    }
   } catch (error) {
     console.error('Failed to complete todos:', error)
   }
@@ -126,7 +121,10 @@ const handleBulkComplete = async () => {
 const handleBulkDelete = async () => {
   if (confirm(`Are you sure you want to delete ${selectedTodos.value.length} tasks?`)) {
     try {
-      await todoStore.deleteMultipleTodos(selectedTodos.value)
+      // Delete todos individually since bulk operations are not available
+      for (const todoId of selectedTodos.value) {
+        await todoStore.deleteTodo(todoId)
+      }
     } catch (error) {
       console.error('Failed to delete todos:', error)
     }
@@ -156,6 +154,17 @@ const handleLogout = async () => {
   } catch (error) {
     console.error('Logout failed:', error)
   }
+}
+
+const formatDate = (date: string | Date) => {
+  const d = new Date(date)
+  return d.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
 }
 
 // Lifecycle
@@ -197,7 +206,7 @@ watch([searchQuery, selectedFilter, sortBy], () => {
               {{ userInitials }}
             </div>
             <div class="user-details">
-              <span class="user-name">{{ authStore.user?.name || 'User' }}</span>
+              <span class="user-name">{{ authStore.user?.email || 'User' }}</span>
               <span class="user-email">{{ authStore.user?.email }}</span>
             </div>
           </div>
@@ -272,13 +281,6 @@ watch([searchQuery, selectedFilter, sortBy], () => {
                     @keydown.enter="handleAddTodo"
                   />
                 </div>
-                <div class="input-group">
-                  <select v-model="newTodo.priority" class="priority-select">
-                    <option value="low">Low Priority</option>
-                    <option value="medium">Medium Priority</option>
-                    <option value="high">High Priority</option>
-                  </select>
-                </div>
                 <button type="submit" class="add-button" :disabled="isLoading">
                   <span v-if="isLoading" class="loading-spinner"></span>
                   <span v-else class="add-icon">➕</span>
@@ -288,7 +290,7 @@ watch([searchQuery, selectedFilter, sortBy], () => {
               <div class="form-row">
                 <div class="input-group full-width">
                   <textarea
-                    v-model="newTodo.description"
+                    v-model="newTodo.content"
                     placeholder="Add a description (optional)"
                     class="description-input"
                     rows="2"
@@ -325,8 +327,8 @@ watch([searchQuery, selectedFilter, sortBy], () => {
               <div class="sort-group">
                 <select v-model="sortBy" @change="handleSortChange" class="sort-select">
                   <option value="createdAt">Date Created</option>
+                  <option value="updatedAt">Last Updated</option>
                   <option value="title">Title</option>
-                  <option value="priority">Priority</option>
                 </select>
               </div>
             </div>
@@ -397,16 +399,13 @@ watch([searchQuery, selectedFilter, sortBy], () => {
                   <h4 class="todo-title" :class="{ completed: todo.completed }">
                     {{ todo.title }}
                   </h4>
-                  <div class="todo-priority" :class="todo.priority || 'low'">
-                    {{ (todo as any).priority || 'low' }}
-                  </div>
                 </div>
-                <p v-if="(todo as any).description" class="todo-description">
-                  {{ (todo as any).description }}
+                <p v-if="todo.content" class="todo-description">
+                  {{ todo.content }}
                 </p>
                 <div class="todo-meta">
                   <span class="todo-date">
-                    {{ $formatDate(todo.createdAt || new Date()) }}
+                    {{ formatDate(todo.createdAt || new Date()) }}
                   </span>
                 </div>
               </div>

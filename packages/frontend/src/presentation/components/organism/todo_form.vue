@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { useTodoStore } from '@/presentation/stores/todo.store';
 import AppButton from '@/presentation/components/atoms/AppButton.vue';
+import { useTodoStore } from '../../stores/todo_store';
 import AppInput from '@/presentation/components/atoms/AppInput.vue';
 
 const todoStore = useTodoStore();

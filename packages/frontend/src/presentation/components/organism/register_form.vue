@@ -1,20 +1,26 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { useAuthStore } from '@/presentation/stores/auth.store';
+
 import AppButton from '@/presentation/components/atoms/AppButton.vue';
 import AppInput from '@/presentation/components/atoms/AppInput.vue';
 import { RouterLink } from 'vue-router';
+import { useAuthStore } from '../../stores/auth_store';
 
 const authStore = useAuthStore();
 const email = ref('');
 const password = ref('');
+const name = ref('');
 </script>
 <template>
-  <form @submit.prevent="authStore.handleRegister({ email, password })" class="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md">
+  <form @submit.prevent="authStore.handleRegister({ email, password, name })" class="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md">
     <h2 class="text-2xl font-bold text-center">Register</h2>
     <div class="space-y-2">
       <label for="email" class="font-medium">Email</label>
       <AppInput id="email" type="email" v-model="email" placeholder="email@example.com" required />
+    </div>
+    <div class="space-y-2">
+      <label for="name" class="font-medium">Name</label>
+      <AppInput id="name" type="text" v-model="name" placeholder="Enter your name" required />
     </div>
     <div class="space-y-2">
       <label for="password" class="font-medium">Password</label>

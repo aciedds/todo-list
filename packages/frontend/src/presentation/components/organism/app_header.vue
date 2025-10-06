@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { useAuthStore } from '@/presentation/stores/auth.store';
 import AppButton from '@/presentation/components/atoms/AppButton.vue';
+import { useAuthStore } from '../../stores/auth_store';
 
 const authStore = useAuthStore();
 </script>

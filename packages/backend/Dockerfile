@@ -1,15 +1,15 @@
-# packages/backend/Dockerfile (Lengkap & Sudah Diperbaiki)
+# packages/backend/Dockerfile (Fixed for Bun workspace)
 
 # Stage 1: Install dependencies
 FROM oven/bun:1.0 AS install
 WORKDIR /app
 
-# Path sekarang relatif dari root context
-COPY package.json ./
-COPY bun.lockb ./
+# Copy workspace files
+COPY package.json bun.lockb ./
 COPY packages/backend/package.json ./packages/backend/
+COPY packages/frontend/package.json ./packages/frontend/
 
-# Install all dependencies using workspaces
+# Install dependencies using Bun workspace
 RUN bun install --frozen-lockfile
 
 # Stage 2: Build and run the app
@@ -18,7 +18,8 @@ WORKDIR /app
 
 # Copy dependencies from the install stage
 COPY --from=install /app/node_modules ./node_modules
-# Copy HANYA source code backend
+
+# Copy backend source code and prisma schema
 COPY packages/backend/ .
 
 # Generate Prisma client

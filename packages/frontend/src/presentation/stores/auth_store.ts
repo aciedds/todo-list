@@ -10,16 +10,25 @@ import apiClient from '../../data/services/api_service';
 import type {
   LoginCredentials,
   RegisterData,
-  UpdateUserData,
-  ChangePasswordData
+  UpdateUserData
 } from '../../data/models/request/user_request';
 import type { ApiError } from '../../data/services/api_service';
+import { UpdateProfileUseCase } from '../../domain/usecases/auth_usecases/update_profile_usecase';
+import { UpdatePasswordUseCase } from '../../domain/usecases/auth_usecases/update_password_usecase';
+import { UpdateEmailUseCase } from '../../domain/usecases/auth_usecases/update_email_usecase';
+import { DeleteAccountUseCase } from '../../domain/usecases/auth_usecases/delete_account_usecase';
+import { LogoutUseCase } from '../../domain/usecases/auth_usecases/logout_usecase';
 
 // Inisialisasi dependensi (Dependency Injection manual)
 const userDataSource = new UserDataSource(apiClient);
 const userRepository = new UserRepositoryImpl(userDataSource);
 const loginUseCase = new LoginUseCase(userRepository);
 const registerUseCase = new RegisterUseCase(userRepository);
+const updateProfileUseCase = new UpdateProfileUseCase(userRepository);
+const changePasswordUseCase = new UpdatePasswordUseCase(userRepository);
+const changeEmailUseCase = new UpdateEmailUseCase(userRepository);
+const deleteAccountUseCase = new DeleteAccountUseCase(userRepository);
+const logoutUseCase = new LogoutUseCase(userRepository);
 
 export const useAuthStore = defineStore('auth', () => {
   const router = useRouter();
@@ -108,7 +117,7 @@ export const useAuthStore = defineStore('auth', () => {
 
       // Call logout endpoint if authenticated
       if (isAuthenticated.value) {
-        await userRepository.logout();
+        await logoutUseCase.execute();
       }
     } catch (err) {
       console.warn("Logout API call failed", err);
@@ -132,42 +141,14 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  async function refreshAuthToken() {
-    try {
-      if (!refreshToken.value) {
-        throw new Error('No refresh token available');
-      }
-
-      const result = await userRepository.refreshToken();
-
-      // Update tokens
-      token.value = result.token;
-      refreshToken.value = result.refreshToken || refreshToken.value;
-      user.value = result.user;
-      lastActivity.value = Date.now();
-
-      // Update localStorage
-      localStorage.setItem('token', result.token);
-      localStorage.setItem('user', JSON.stringify(result.user));
-      if (result.refreshToken) {
-        localStorage.setItem('refreshToken', result.refreshToken);
-      }
-
-      return result;
-    } catch (err) {
-      console.error("Token refresh failed", err);
-      // If refresh fails, logout user
-      await handleLogout();
-      throw err;
-    }
-  }
+  // Note: refreshAuthToken removed - not available in backend
 
   async function updateProfile(updateData: UpdateUserData) {
     try {
       isLoading.value = true;
       error.value = null;
 
-      const updatedUser = await userRepository.updateProfile(updateData);
+      const updatedUser = await updateProfileUseCase.execute(updateData);
       user.value = updatedUser;
 
       // Update localStorage
@@ -184,12 +165,12 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  async function changePassword(passwordData: ChangePasswordData) {
+  async function changePassword(currentPassword: string, newPassword: string) {
     try {
       isLoading.value = true;
       error.value = null;
 
-      await userRepository.changePassword(passwordData);
+      await changePasswordUseCase.execute(currentPassword, newPassword);
     } catch (err) {
       const apiError = err as ApiError;
       error.value = apiError.message || 'Failed to change password';
@@ -200,76 +181,34 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  async function requestPasswordReset(email: string) {
+  async function changeEmail(newEmail: string, currentPassword: string) {
     try {
       isLoading.value = true;
       error.value = null;
 
-      await userRepository.requestPasswordReset(email);
+      const updatedUser = await changeEmailUseCase.execute(newEmail, currentPassword);
+      user.value = updatedUser;
+
+      // Update localStorage
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+
+      return updatedUser;
     } catch (err) {
       const apiError = err as ApiError;
-      error.value = apiError.message || 'Failed to request password reset';
-      console.error("Password reset request failed", err);
+      error.value = apiError.message || 'Failed to change email';
+      console.error("Email change failed", err);
       throw apiError;
     } finally {
       isLoading.value = false;
     }
   }
 
-  async function resetPassword(token: string, newPassword: string) {
+  async function deleteAccount() {
     try {
       isLoading.value = true;
       error.value = null;
 
-      await userRepository.resetPassword(token, newPassword);
-    } catch (err) {
-      const apiError = err as ApiError;
-      error.value = apiError.message || 'Failed to reset password';
-      console.error("Password reset failed", err);
-      throw apiError;
-    } finally {
-      isLoading.value = false;
-    }
-  }
-
-  async function verifyEmail(token: string) {
-    try {
-      isLoading.value = true;
-      error.value = null;
-
-      await userRepository.verifyEmail(token);
-    } catch (err) {
-      const apiError = err as ApiError;
-      error.value = apiError.message || 'Failed to verify email';
-      console.error("Email verification failed", err);
-      throw apiError;
-    } finally {
-      isLoading.value = false;
-    }
-  }
-
-  async function resendVerificationEmail() {
-    try {
-      isLoading.value = true;
-      error.value = null;
-
-      await userRepository.resendVerificationEmail();
-    } catch (err) {
-      const apiError = err as ApiError;
-      error.value = apiError.message || 'Failed to resend verification email';
-      console.error("Resend verification failed", err);
-      throw apiError;
-    } finally {
-      isLoading.value = false;
-    }
-  }
-
-  async function deleteAccount(password: string) {
-    try {
-      isLoading.value = true;
-      error.value = null;
-
-      await userRepository.deleteAccount(password);
+      await deleteAccountUseCase.execute();
 
       // Logout after successful account deletion
       await handleLogout();
@@ -293,10 +232,8 @@ export const useAuthStore = defineStore('auth', () => {
 
   function checkTokenExpiration() {
     if (isTokenExpired.value && isAuthenticated.value) {
-      // Try to refresh token, if that fails, logout
-      refreshAuthToken().catch(() => {
-        handleLogout();
-      });
+      // Since refresh token is not available, just logout
+      handleLogout();
     }
   }
 
@@ -320,13 +257,9 @@ export const useAuthStore = defineStore('auth', () => {
     handleLogin,
     handleRegister,
     handleLogout,
-    refreshAuthToken,
     updateProfile,
     changePassword,
-    requestPasswordReset,
-    resetPassword,
-    verifyEmail,
-    resendVerificationEmail,
+    changeEmail,
     deleteAccount,
     updateLastActivity,
     clearError,

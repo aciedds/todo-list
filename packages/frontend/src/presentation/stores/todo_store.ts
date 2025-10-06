@@ -10,10 +10,22 @@ import type {
   TodoFilters
 } from '../../data/models/request/todo_request';
 import type { ApiError } from '../../data/services/api_service';
+import { AddTodoUseCase } from '../../domain/usecases/todo_usecases/add_todo_usecase';
+import { GetTodosUseCase } from '../../domain/usecases/todo_usecases/get_todos_usecase';
+import { GetTodoUseCase } from '../../domain/usecases/todo_usecases/get_todo_usecase';
+import { UpdateTodoUseCase } from '../../domain/usecases/todo_usecases/update_todo_usecase';
+import { DeleteTodoUseCase } from '../../domain/usecases/todo_usecases/delete_todo_usecase';
+import { ToggleTodoUseCase } from '../../domain/usecases/todo_usecases/toggle_todo_usecase';
 
 // Inisialisasi dependensi
 const todoDataSource = new TodoDataSource(apiClient);
 const todoRepository = new TodoRepositoryImpl(todoDataSource);
+const addTodoUseCase = new AddTodoUseCase(todoRepository);
+const getTodosUseCase = new GetTodosUseCase(todoRepository);
+const getTodoUseCase = new GetTodoUseCase(todoRepository);
+const updateTodoUseCase = new UpdateTodoUseCase(todoRepository);
+const deleteTodoUseCase = new DeleteTodoUseCase(todoRepository);
+const toggleTodoUseCase = new ToggleTodoUseCase(todoRepository);
 
 export const useTodoStore = defineStore('todo', () => {
   // State
@@ -33,12 +45,9 @@ export const useTodoStore = defineStore('todo', () => {
     todos.value.filter(todo => !todo.completed)
   );
 
-  const todosByPriority = computed(() => {
-    const priorityOrder = { high: 3, medium: 2, low: 1 };
+  const todosByDate = computed(() => {
     return [...todos.value].sort((a, b) => {
-      const aPriority = (a as any).priority || 'low';
-      const bPriority = (b as any).priority || 'low';
-      return priorityOrder[bPriority as keyof typeof priorityOrder] - priorityOrder[aPriority as keyof typeof priorityOrder];
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
   });
 
@@ -49,15 +58,11 @@ export const useTodoStore = defineStore('todo', () => {
       filtered = filtered.filter(todo => todo.completed === filters.value.completed);
     }
 
-    if (filters.value.priority) {
-      filtered = filtered.filter(todo => (todo as any).priority === filters.value.priority);
-    }
-
     if (filters.value.search) {
       const searchTerm = filters.value.search.toLowerCase();
       filtered = filtered.filter(todo =>
         todo.title.toLowerCase().includes(searchTerm) ||
-        ((todo as any).description || '').toLowerCase().includes(searchTerm)
+        (todo.content || '').toLowerCase().includes(searchTerm)
       );
     }
 
@@ -78,7 +83,7 @@ export const useTodoStore = defineStore('todo', () => {
       error.value = null;
 
       const filtersToUse = customFilters || filters.value;
-      todos.value = await todoRepository.getAll(filtersToUse);
+      todos.value = await getTodosUseCase.execute(filtersToUse);
     } catch (err) {
       const apiError = err as ApiError;
       error.value = apiError.message || 'Failed to fetch todos';
@@ -94,7 +99,7 @@ export const useTodoStore = defineStore('todo', () => {
       isLoading.value = true;
       error.value = null;
 
-      currentTodo.value = await todoRepository.getById(id);
+      currentTodo.value = await getTodoUseCase.execute(id);
       return currentTodo.value;
     } catch (err) {
       const apiError = err as ApiError;
@@ -111,7 +116,7 @@ export const useTodoStore = defineStore('todo', () => {
       isLoading.value = true;
       error.value = null;
 
-      const newTodo = await todoRepository.create(data);
+      const newTodo = await addTodoUseCase.execute(data);
       todos.value.unshift(newTodo); // Add to beginning of list
 
       return newTodo;
@@ -130,7 +135,7 @@ export const useTodoStore = defineStore('todo', () => {
       isLoading.value = true;
       error.value = null;
 
-      const updatedTodo = await todoRepository.update(id, data);
+      const updatedTodo = await updateTodoUseCase.execute(id, data);
       const index = todos.value.findIndex(todo => todo.id === id);
       if (index !== -1) {
         todos.value[index] = updatedTodo;
@@ -151,38 +156,13 @@ export const useTodoStore = defineStore('todo', () => {
     }
   }
 
-  async function patchTodo(id: string, data: Partial<UpdateTodoData>) {
-    try {
-      isLoading.value = true;
-      error.value = null;
-
-      const updatedTodo = await todoRepository.patch(id, data);
-      const index = todos.value.findIndex(todo => todo.id === id);
-      if (index !== -1) {
-        todos.value[index] = updatedTodo;
-      }
-
-      if (currentTodo.value?.id === id) {
-        currentTodo.value = updatedTodo;
-      }
-
-      return updatedTodo;
-    } catch (err) {
-      const apiError = err as ApiError;
-      error.value = apiError.message || 'Failed to update todo';
-      console.error(`Failed to patch todo with id ${id}:`, err);
-      throw apiError;
-    } finally {
-      isLoading.value = false;
-    }
-  }
 
   async function deleteTodo(id: string) {
     try {
       isLoading.value = true;
       error.value = null;
 
-      await todoRepository.delete(id);
+      await deleteTodoUseCase.execute(id);
       todos.value = todos.value.filter(todo => todo.id !== id);
       selectedTodos.value = selectedTodos.value.filter(todoId => todoId !== id);
 
@@ -204,14 +184,17 @@ export const useTodoStore = defineStore('todo', () => {
       isLoading.value = true;
       error.value = null;
 
-      const updatedTodo = await todoRepository.toggleComplete(id);
+      // Find the current todo to get its completion status
+      const currentTodo = todos.value.find(todo => todo.id === id);
+      if (!currentTodo) {
+        throw new Error('Todo not found');
+      }
+
+      // Toggle the completion status using use case
+      const updatedTodo = await toggleTodoUseCase.execute(id, currentTodo.completed);
       const index = todos.value.findIndex(todo => todo.id === id);
       if (index !== -1) {
         todos.value[index] = updatedTodo;
-      }
-
-      if (currentTodo.value?.id === id) {
-        currentTodo.value = updatedTodo;
       }
 
       return updatedTodo;
@@ -219,53 +202,6 @@ export const useTodoStore = defineStore('todo', () => {
       const apiError = err as ApiError;
       error.value = apiError.message || 'Failed to toggle todo';
       console.error(`Failed to toggle todo with id ${id}:`, err);
-      throw apiError;
-    } finally {
-      isLoading.value = false;
-    }
-  }
-
-  async function markMultipleComplete(ids: string[]) {
-    try {
-      isLoading.value = true;
-      error.value = null;
-
-      const updatedTodos = await todoRepository.markMultipleComplete(ids);
-
-      // Update todos in the list
-      updatedTodos.forEach(updatedTodo => {
-        const index = todos.value.findIndex(todo => todo.id === updatedTodo.id);
-        if (index !== -1) {
-          todos.value[index] = updatedTodo;
-        }
-      });
-
-      // Clear selection
-      selectedTodos.value = [];
-
-      return updatedTodos;
-    } catch (err) {
-      const apiError = err as ApiError;
-      error.value = apiError.message || 'Failed to mark todos as complete';
-      console.error('Failed to mark multiple todos as complete:', err);
-      throw apiError;
-    } finally {
-      isLoading.value = false;
-    }
-  }
-
-  async function deleteMultipleTodos(ids: string[]) {
-    try {
-      isLoading.value = true;
-      error.value = null;
-
-      await todoRepository.deleteMultiple(ids);
-      todos.value = todos.value.filter(todo => !ids.includes(todo.id));
-      selectedTodos.value = [];
-    } catch (err) {
-      const apiError = err as ApiError;
-      error.value = apiError.message || 'Failed to delete todos';
-      console.error('Failed to delete multiple todos:', err);
       throw apiError;
     } finally {
       isLoading.value = false;
@@ -326,7 +262,7 @@ export const useTodoStore = defineStore('todo', () => {
     // Computed
     completedTodos,
     pendingTodos,
-    todosByPriority,
+    todosByDate,
     filteredTodos,
     hasSelectedTodos,
     completionPercentage,
@@ -336,11 +272,8 @@ export const useTodoStore = defineStore('todo', () => {
     getTodoById,
     addTodo,
     updateTodo,
-    patchTodo,
     deleteTodo,
     toggleTodoComplete,
-    markMultipleComplete,
-    deleteMultipleTodos,
     setFilters,
     clearFilters,
     selectTodo,

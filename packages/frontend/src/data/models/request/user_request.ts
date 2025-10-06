@@ -1,4 +1,3 @@
-import type { User } from "../../../domain/models/user_model";
 
 export interface LoginCredentials {
   email: string;
@@ -15,19 +14,15 @@ export interface RegisterData {
 export interface UpdateUserData {
   name?: string;
   email?: string;
-  avatar?: string;
-  bio?: string;
+  password?: string;
 }
 
 export interface ChangePasswordData {
   currentPassword: string;
-  newPassword: string;
-  confirmPassword: string;
+  password: string;
 }
 
-export interface AuthResponse {
-  token: string;
-  user: User;
-  refreshToken?: string;
-  expiresIn?: number;
+export interface ChangeEmailData {
+  newEmail: string;
+  currentPassword: string;
 }

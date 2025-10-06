@@ -3,5 +3,8 @@ export interface Todo {
   title: string;
   content?: string;
   completed: boolean;
-  isOwner: boolean;
+  createdAt: string;
+  updatedAt: string;
+  authorId: string;
+  isOwner?: boolean;
 }

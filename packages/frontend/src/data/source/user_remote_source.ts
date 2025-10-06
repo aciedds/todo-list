@@ -2,7 +2,8 @@
 import { ApiClient } from '../services/api_service';
 import type { User } from '../../domain/models/user_model';
 import type { ApiError } from '../services/api_service';
-import type { AuthResponse, ChangePasswordData, LoginCredentials, RegisterData, UpdateUserData } from '../models/request/user_request';
+import type { ChangePasswordData, LoginCredentials, RegisterData, UpdateUserData, ChangeEmailData } from '../models/request/user_request';
+import type { AuthResponse, UserProfileResponse, RegisterResponse, LoginResponse } from '../models/response/user_response';
 
 export class UserDataSource {
   private apiClient: ApiClient;
@@ -17,8 +18,8 @@ export class UserDataSource {
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
     try {
       this.validateLoginCredentials(credentials);
-      const response = await this.apiClient.post<AuthResponse>('/users/login', credentials);
-      return response.data;
+      const response = await this.apiClient.post<LoginResponse>('/users/login', credentials);
+      return response.data.data;
     } catch (error) {
       console.error('Login failed:', error);
       throw this.handleError(error);
@@ -31,8 +32,13 @@ export class UserDataSource {
   async register(userInfo: RegisterData): Promise<User> {
     try {
       this.validateRegisterData(userInfo);
-      const response = await this.apiClient.post<User>('/users/register', userInfo);
-      return response.data;
+      const response = await this.apiClient.post<RegisterResponse>('/users/register', userInfo);
+      return {
+        id: response.data.data.id,
+        email: response.data.data.email,
+        name: response.data.data.name,
+        createdAt: response.data.data.createdAt
+      };
     } catch (error) {
       console.error('Registration failed:', error);
       throw this.handleError(error);
@@ -44,8 +50,14 @@ export class UserDataSource {
    */
   async getProfile(): Promise<User> {
     try {
-      const response = await this.apiClient.get<User>('/users/profile');
-      return response.data;
+      const response = await this.apiClient.get<{ success: boolean; data: UserProfileResponse }>('/users/profile');
+      return {
+        id: response.data.data.id,
+        email: response.data.data.email,
+        name: response.data.data.name,
+        createdAt: response.data.data.createdAt,
+        updateAt: response.data.data.updateAt
+      };
     } catch (error) {
       console.error('Failed to fetch user profile:', error);
       throw this.handleError(error);
@@ -58,8 +70,18 @@ export class UserDataSource {
   async updateProfile(data: UpdateUserData): Promise<User> {
     try {
       this.validateUpdateData(data);
-      const response = await this.apiClient.put<User>('/users/profile', data);
-      return response.data;
+      // Get current user ID from profile first
+      const profileResponse = await this.apiClient.get<{ success: boolean; data: UserProfileResponse }>('/users/profile');
+      const userId = profileResponse.data.data.id;
+
+      const response = await this.apiClient.put<{ success: boolean; data: UserProfileResponse }>(`/users/${userId}`, data);
+      return {
+        id: response.data.data.id,
+        email: response.data.data.email,
+        name: response.data.data.name,
+        createdAt: response.data.data.createdAt,
+        updateAt: response.data.data.updateAt
+      };
     } catch (error) {
       console.error('Failed to update user profile:', error);
       throw this.handleError(error);
@@ -72,7 +94,11 @@ export class UserDataSource {
   async changePassword(data: ChangePasswordData): Promise<void> {
     try {
       this.validateChangePasswordData(data);
-      await this.apiClient.post('/users/change-password', data);
+      // Get current user ID from profile first
+      const profileResponse = await this.apiClient.get<{ success: boolean; data: UserProfileResponse }>('/users/profile');
+      const userId = profileResponse.data.data.id;
+
+      await this.apiClient.put(`/users/${userId}/password`, data);
     } catch (error) {
       console.error('Failed to change password:', error);
       throw this.handleError(error);
@@ -80,11 +106,13 @@ export class UserDataSource {
   }
 
   /**
-   * Logout user
+   * Logout user (client-side only since backend doesn't have logout endpoint)
    */
   async logout(): Promise<void> {
     try {
-      await this.apiClient.post('/users/logout');
+      // Since backend doesn't have a logout endpoint, we just clear local storage
+      // This is typically handled by the auth store or service
+      console.log('Logout handled client-side');
     } catch (error) {
       console.error('Logout failed:', error);
       throw this.handleError(error);
@@ -92,70 +120,28 @@ export class UserDataSource {
   }
 
   /**
-   * Refresh authentication token
+   * Change user email
    */
-  async refreshToken(): Promise<AuthResponse> {
+  async changeEmail(data: ChangeEmailData): Promise<User> {
     try {
-      const response = await this.apiClient.post<AuthResponse>('/users/refresh-token');
-      return response.data;
-    } catch (error) {
-      console.error('Token refresh failed:', error);
-      throw this.handleError(error);
-    }
-  }
-
-  /**
-   * Request password reset
-   */
-  async requestPasswordReset(email: string): Promise<void> {
-    try {
-      this.validateEmail(email);
-      await this.apiClient.post('/users/forgot-password', { email });
-    } catch (error) {
-      console.error('Password reset request failed:', error);
-      throw this.handleError(error);
-    }
-  }
-
-  /**
-   * Reset password with token
-   */
-  async resetPassword(token: string, newPassword: string): Promise<void> {
-    try {
-      this.validatePassword(newPassword);
-      if (!token || token.trim().length === 0) {
-        throw new Error('Reset token is required');
+      this.validateEmail(data.newEmail);
+      if (!data.currentPassword || typeof data.currentPassword !== 'string') {
+        throw new Error('Current password is required');
       }
-      await this.apiClient.post('/users/reset-password', { token, newPassword });
-    } catch (error) {
-      console.error('Password reset failed:', error);
-      throw this.handleError(error);
-    }
-  }
+      // Get current user ID from profile first
+      const profileResponse = await this.apiClient.get<{ success: boolean; data: UserProfileResponse }>('/users/profile');
+      const userId = profileResponse.data.data.id;
 
-  /**
-   * Verify email address
-   */
-  async verifyEmail(token: string): Promise<void> {
-    try {
-      if (!token || token.trim().length === 0) {
-        throw new Error('Verification token is required');
-      }
-      await this.apiClient.post('/users/verify-email', { token });
+      const response = await this.apiClient.put<{ success: boolean; data: UserProfileResponse }>(`/users/${userId}/email`, data);
+      return {
+        id: response.data.data.id,
+        email: response.data.data.email,
+        name: response.data.data.name,
+        createdAt: response.data.data.createdAt,
+        updateAt: response.data.data.updateAt
+      };
     } catch (error) {
-      console.error('Email verification failed:', error);
-      throw this.handleError(error);
-    }
-  }
-
-  /**
-   * Resend email verification
-   */
-  async resendVerificationEmail(): Promise<void> {
-    try {
-      await this.apiClient.post('/users/resend-verification');
-    } catch (error) {
-      console.error('Failed to resend verification email:', error);
+      console.error('Failed to change email:', error);
       throw this.handleError(error);
     }
   }
@@ -163,10 +149,13 @@ export class UserDataSource {
   /**
    * Delete user account
    */
-  async deleteAccount(password: string): Promise<void> {
+  async deleteAccount(): Promise<void> {
     try {
-      this.validatePassword(password);
-      await this.apiClient.delete('/users/account', { data: { password } });
+      // Get current user ID from profile first
+      const profileResponse = await this.apiClient.get<{ success: boolean; data: UserProfileResponse }>('/users/profile');
+      const userId = profileResponse.data.data.id;
+
+      await this.apiClient.delete(`/users/${userId}`);
     } catch (error) {
       console.error('Failed to delete account:', error);
       throw this.handleError(error);
@@ -260,8 +249,8 @@ export class UserDataSource {
       }
     }
 
-    if (data.bio !== undefined && data.bio.length > 500) {
-      throw new Error('Bio must be 500 characters or less');
+    if (data.password !== undefined) {
+      this.validatePassword(data.password);
     }
   }
 
@@ -274,13 +263,9 @@ export class UserDataSource {
       throw new Error('Current password is required');
     }
 
-    this.validatePassword(data.newPassword);
+    this.validatePassword(data.password);
 
-    if (data.newPassword !== data.confirmPassword) {
-      throw new Error('New passwords do not match');
-    }
-
-    if (data.currentPassword === data.newPassword) {
+    if (data.currentPassword === data.password) {
       throw new Error('New password must be different from current password');
     }
   }

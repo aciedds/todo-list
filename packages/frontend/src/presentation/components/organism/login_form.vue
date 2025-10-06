@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { useAuthStore } from '@/presentation/stores/auth.store';
 import AppButton from '@/presentation/components/atoms/AppButton.vue';
+import { useAuthStore } from '../../stores/auth_store';
 import AppInput from '@/presentation/components/atoms/AppInput.vue';
 import { RouterLink } from 'vue-router';
 

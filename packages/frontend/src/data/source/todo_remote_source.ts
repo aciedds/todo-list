@@ -2,7 +2,12 @@
 import { ApiClient } from '../services/api_service';
 import type { Todo } from '../../domain/models/todo_model';
 import type { ApiError } from '../services/api_service';
-import type { CreateTodoData, TodoFilters, UpdateTodoData } from '../models/request/todo_request';
+import type {
+  CreateTodoData,
+  TodoFilters,
+  UpdateTodoData,
+} from '../models/request/todo_request';
+import type { CreateTodoResponse, DeleteTodoResponse, GetTodoResponse, GetTodosResponse, UpdateTodoResponse } from '../models/response/todo_response';
 
 export class TodoDataSource {
   private apiClient: ApiClient;
@@ -21,9 +26,6 @@ export class TodoDataSource {
       if (filters?.completed !== undefined) {
         params.append('completed', filters.completed.toString());
       }
-      if (filters?.priority) {
-        params.append('priority', filters.priority);
-      }
       if (filters?.search) {
         params.append('search', filters.search);
       }
@@ -37,8 +39,8 @@ export class TodoDataSource {
       const queryString = params.toString();
       const url = queryString ? `/todos?${queryString}` : '/todos';
 
-      const response = await this.apiClient.get<Todo[]>(url);
-      return response.data;
+      const response = await this.apiClient.get<GetTodosResponse>(url);
+      return response.data.data;
     } catch (error) {
       console.error('Failed to fetch todos:', error);
       throw this.handleError(error);
@@ -51,8 +53,8 @@ export class TodoDataSource {
   async getById(id: string): Promise<Todo> {
     try {
       this.validateId(id);
-      const response = await this.apiClient.get<Todo>(`/todos/${id}`);
-      return response.data;
+      const response = await this.apiClient.get<GetTodoResponse>(`/todos/${id}`);
+      return response.data.data;
     } catch (error) {
       console.error(`Failed to fetch todo with id ${id}:`, error);
       throw this.handleError(error);
@@ -65,8 +67,8 @@ export class TodoDataSource {
   async create(data: CreateTodoData): Promise<Todo> {
     try {
       this.validateCreateData(data);
-      const response = await this.apiClient.post<Todo>('/todos', data);
-      return response.data;
+      const response = await this.apiClient.post<CreateTodoResponse>('/todos', data);
+      return response.data.data;
     } catch (error) {
       console.error('Failed to create todo:', error);
       throw this.handleError(error);
@@ -80,27 +82,14 @@ export class TodoDataSource {
     try {
       this.validateId(id);
       this.validateUpdateData(data);
-      const response = await this.apiClient.put<Todo>(`/todos/${id}`, data);
-      return response.data;
+      const response = await this.apiClient.put<UpdateTodoResponse>(`/todos/${id}`, data);
+      return response.data.data;
     } catch (error) {
       console.error(`Failed to update todo with id ${id}:`, error);
       throw this.handleError(error);
     }
   }
 
-  /**
-   * Partially update an existing todo
-   */
-  async patch(id: string, data: Partial<UpdateTodoData>): Promise<Todo> {
-    try {
-      this.validateId(id);
-      const response = await this.apiClient.patch<Todo>(`/todos/${id}`, data);
-      return response.data;
-    } catch (error) {
-      console.error(`Failed to patch todo with id ${id}:`, error);
-      throw this.handleError(error);
-    }
-  }
 
   /**
    * Delete a todo
@@ -108,63 +97,13 @@ export class TodoDataSource {
   async delete(id: string): Promise<void> {
     try {
       this.validateId(id);
-      await this.apiClient.delete(`/todos/${id}`);
+      await this.apiClient.delete<DeleteTodoResponse>(`/todos/${id}`);
     } catch (error) {
       console.error(`Failed to delete todo with id ${id}:`, error);
       throw this.handleError(error);
     }
   }
 
-  /**
-   * Toggle todo completion status
-   */
-  async toggleComplete(id: string): Promise<Todo> {
-    try {
-      this.validateId(id);
-      const response = await this.apiClient.patch<Todo>(`/todos/${id}/toggle`);
-      return response.data;
-    } catch (error) {
-      console.error(`Failed to toggle todo with id ${id}:`, error);
-      throw this.handleError(error);
-    }
-  }
-
-  /**
-   * Mark multiple todos as completed
-   */
-  async markMultipleComplete(ids: string[]): Promise<Todo[]> {
-    try {
-      if (!Array.isArray(ids) || ids.length === 0) {
-        throw new Error('IDs array must be provided and not empty');
-      }
-
-      ids.forEach(id => this.validateId(id));
-
-      const response = await this.apiClient.post<Todo[]>('/todos/bulk-complete', { ids });
-      return response.data;
-    } catch (error) {
-      console.error('Failed to mark multiple todos as complete:', error);
-      throw this.handleError(error);
-    }
-  }
-
-  /**
-   * Delete multiple todos
-   */
-  async deleteMultiple(ids: string[]): Promise<void> {
-    try {
-      if (!Array.isArray(ids) || ids.length === 0) {
-        throw new Error('IDs array must be provided and not empty');
-      }
-
-      ids.forEach(id => this.validateId(id));
-
-      await this.apiClient.post('/todos/bulk-delete', { ids });
-    } catch (error) {
-      console.error('Failed to delete multiple todos:', error);
-      throw this.handleError(error);
-    }
-  }
 
   // Private validation methods
   private validateId(id: string): void {
@@ -186,16 +125,12 @@ export class TodoDataSource {
       throw new Error('Title must be 255 characters or less');
     }
 
-    if (data.description && data.description.length > 1000) {
-      throw new Error('Description must be 1000 characters or less');
+    if (data.content && data.content.length > 1000) {
+      throw new Error('Content must be 1000 characters or less');
     }
 
-    if (data.priority && !['low', 'medium', 'high'].includes(data.priority)) {
-      throw new Error('Priority must be low, medium, or high');
-    }
-
-    if (data.dueDate && !this.isValidDate(data.dueDate)) {
-      throw new Error('Due date must be a valid ISO date string');
+    if (data.completed !== undefined && typeof data.completed !== 'boolean') {
+      throw new Error('Completed must be a boolean value');
     }
   }
 
@@ -213,22 +148,13 @@ export class TodoDataSource {
       }
     }
 
-    if (data.description !== undefined && data.description.length > 1000) {
-      throw new Error('Description must be 1000 characters or less');
+    if (data.content !== undefined && data.content.length > 1000) {
+      throw new Error('Content must be 1000 characters or less');
     }
 
-    if (data.priority && !['low', 'medium', 'high'].includes(data.priority)) {
-      throw new Error('Priority must be low, medium, or high');
+    if (data.completed !== undefined && typeof data.completed !== 'boolean') {
+      throw new Error('Completed must be a boolean value');
     }
-
-    if (data.dueDate && !this.isValidDate(data.dueDate)) {
-      throw new Error('Due date must be a valid ISO date string');
-    }
-  }
-
-  private isValidDate(dateString: string): boolean {
-    const date = new Date(dateString);
-    return date instanceof Date && !isNaN(date.getTime());
   }
 
   private handleError(error: any): ApiError {

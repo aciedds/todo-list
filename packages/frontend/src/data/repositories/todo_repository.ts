@@ -59,17 +59,6 @@ export class TodoRepositoryImpl implements TodoRepository {
     }
   }
 
-  /**
-   * Partially update an existing todo
-   */
-  async patch(id: string, data: Partial<UpdateTodoData>): Promise<Todo> {
-    try {
-      return await this.todoDataSource.patch(id, data);
-    } catch (error) {
-      console.error(`Repository: Failed to patch todo with id ${id}:`, error);
-      throw this.handleError(error);
-    }
-  }
 
   /**
    * Delete a todo
@@ -83,41 +72,6 @@ export class TodoRepositoryImpl implements TodoRepository {
     }
   }
 
-  /**
-   * Toggle todo completion status
-   */
-  async toggleComplete(id: string): Promise<Todo> {
-    try {
-      return await this.todoDataSource.toggleComplete(id);
-    } catch (error) {
-      console.error(`Repository: Failed to toggle todo with id ${id}:`, error);
-      throw this.handleError(error);
-    }
-  }
-
-  /**
-   * Mark multiple todos as completed
-   */
-  async markMultipleComplete(ids: string[]): Promise<Todo[]> {
-    try {
-      return await this.todoDataSource.markMultipleComplete(ids);
-    } catch (error) {
-      console.error('Repository: Failed to mark multiple todos as complete:', error);
-      throw this.handleError(error);
-    }
-  }
-
-  /**
-   * Delete multiple todos
-   */
-  async deleteMultiple(ids: string[]): Promise<void> {
-    try {
-      await this.todoDataSource.deleteMultiple(ids);
-    } catch (error) {
-      console.error('Repository: Failed to delete multiple todos:', error);
-      throw this.handleError(error);
-    }
-  }
 
   /**
    * Handle errors from the data source

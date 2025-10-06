@@ -1,4 +1,5 @@
-import type { AuthResponse, ChangePasswordData, LoginCredentials, RegisterData, UpdateUserData } from "../../data/models/request/user_request";
+import type { ChangePasswordData, LoginCredentials, RegisterData, UpdateUserData, ChangeEmailData } from "../../data/models/request/user_request";
+import type { AuthResponse } from "../../data/models/response/user_response";
 import type { User } from "../models/user_model";
 
 export interface UserRepository {
@@ -7,11 +8,7 @@ export interface UserRepository {
   getProfile(): Promise<User>;
   updateProfile(data: UpdateUserData): Promise<User>;
   changePassword(data: ChangePasswordData): Promise<void>;
+  changeEmail(data: ChangeEmailData): Promise<User>;
   logout(): Promise<void>;
-  refreshToken(): Promise<AuthResponse>;
-  requestPasswordReset(email: string): Promise<void>;
-  resetPassword(token: string, newPassword: string): Promise<void>;
-  verifyEmail(token: string): Promise<void>;
-  resendVerificationEmail(): Promise<void>;
-  deleteAccount(password: string): Promise<void>;
+  deleteAccount(): Promise<void>;
 }

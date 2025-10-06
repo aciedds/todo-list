@@ -1,5 +1,6 @@
 import type { TodoRepository } from "../../repositories/todo_repository";
-
+import type { CreateTodoData } from "../../../data/models/request/todo_request";
+import type { Todo } from "../../models/todo_model";
 
 export class AddTodoUseCase {
   private todoRepository: TodoRepository;
@@ -8,7 +9,7 @@ export class AddTodoUseCase {
     this.todoRepository = todoRepository;
   }
 
-  async execute(data: { title: string }) {
+  async execute(data: CreateTodoData): Promise<Todo> {
     return this.todoRepository.create(data);
   }
 }
