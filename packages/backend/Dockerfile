@@ -1,7 +1,7 @@
 # packages/backend/Dockerfile (Lengkap & Sudah Diperbaiki)
 
 # Stage 1: Install dependencies
-FROM oven/bun:1.0 as install
+FROM oven/bun:1.0 AS install
 WORKDIR /app
 
 # Path sekarang relatif dari root context

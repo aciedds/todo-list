@@ -1,4 +1,3 @@
-# docker-compose.yml (Versi yang sudah benar)
 services:
   db:
     image: postgres:15
@@ -33,6 +32,16 @@ services:
     volumes:
       - ./packages/backend:/app
       - /app/node_modules
+
+  frontend:
+    build:
+      context: .
+      dockerfile: ./packages/frontend/Dockerfile
+    restart: always
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
 
 volumes:
   postgres_data:
