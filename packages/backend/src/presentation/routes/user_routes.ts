@@ -2,9 +2,11 @@ import { Elysia, t } from "elysia";
 import { userUseCase } from "../../di/injections";
 import { authPlugin } from "../../utils/middleware/auth_middleware";
 import { handleError } from "../../utils/handler_error";
+import { jwt } from '@elysiajs/jwt';
 
 export const userRoutes = (app: Elysia) =>
-  app
+  app.use(jwt({ name: "jwt", secret: process.env.JWT_SECRET!, exp: '2h' })
+    .use(jwt({ name: "jwtRefresh", secret: process.env.JWT_SECRET!, exp: '7d' })))
     .group("/users", (app) =>
       app
         .post(
@@ -24,6 +26,7 @@ export const userRoutes = (app: Elysia) =>
                 }
               };
             } catch (error) {
+              console.error("Register user error:", error);
               return handleError(error);
             }
           },
@@ -42,14 +45,22 @@ export const userRoutes = (app: Elysia) =>
         )
         .post(
           "/login",
-          async ({ body, set }) => {
+          async ({ jwt, jwtRefresh, body, set }) => {
             try {
               const result = await userUseCase.loginUser(body);
+              // generate token
+              const token = await jwt.sign({ userId: result.user.id });
+              const refreshToken = await jwtRefresh.sign({ userId: result.user.id });
+
               set.status = 200;
               return {
                 success: true,
                 message: "Login successful",
-                data: result
+                data: {
+                  user: result.user,
+                  token: token,
+                  refreshToken: refreshToken,
+                }
               };
             } catch (error) {
               return handleError(error);

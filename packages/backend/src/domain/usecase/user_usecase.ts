@@ -34,6 +34,7 @@ export class UserUseCase {
 
     // Check if user already exists
     const existingUser = await this.userRepository.findUserByEmail(data.email);
+    
     if (existingUser) {
       throw new UserInputError('A user with this email already exists.');
     }
